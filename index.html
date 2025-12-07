@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导航</title>
+    <link href="style.css" rel="stylesheet" type="text/css">
+    <script src="app.js"></script>
+    <script>
+      // 注册 Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function(registration) {
+              console.log('Service Worker 注册成功:', registration.scope);
+
+              // 监听 Service Worker 更新
+              registration.addEventListener('updatefound', function() {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', function() {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // 有新版本可用
+                    console.log('新版本 Service Worker 已安装，准备更新');
+                    // 可以在这里显示更新提示给用户
+                  }
+                });
+              });
+            })
+            .catch(function(error) {
+              console.log('Service Worker 注册失败:', error);
+            });
+        });
+      }
+
+      // 弹窗拖拽功能
+      function makeDraggable(modalId, headerId) {
+        const modal = document.getElementById(modalId);
+        const header = document.getElementById(headerId);
+        // 找到弹窗内容元素（实际需要移动的元素）
+        const content = modal.querySelector('.settings-panel__content') || modal.querySelector('.settings-panel-content');
+
+        if (!modal || !header || !content) return;
+
+        let isDragging = false;
+        let startX, startY;
+        let initialX = 0, initialY = 0;
+
+        // 只在标题区域显示可移动光标
+        header.style.cursor = 'move';
+
+        // 只在标题区域监听mousedown事件
+        header.addEventListener('mousedown', function(e) {
+          // 防止在输入框、按钮等元素上开始拖拽
+          if (e.target.tagName.toLowerCase() === 'input' ||
+              e.target.tagName.toLowerCase() === 'button' ||
+              e.target.tagName.toLowerCase() === 'select' ||
+              e.target.tagName.toLowerCase() === 'textarea') {
+            return; // 不开始拖拽
+          }
+
+          isDragging = true;
+          startX = e.clientX;
+          startY = e.clientY;
+
+          // 获取当前的transform值
+          const computedStyle = window.getComputedStyle(content);
+          const transform = computedStyle.transform;
+          if (transform && transform !== 'none') {
+            const matrix = new DOMMatrix(transform);
+            initialX = matrix.m41; // translateX
+            initialY = matrix.m42; // translateY
+          }
+
+          // 防止文本选择
+          e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', function(e) {
+          if (!isDragging) return;
+
+          const deltaX = e.clientX - startX + initialX;
+          const deltaY = e.clientY - startY + initialY;
+
+          // 在弹窗内容上设置transform，这样不会影响flexbox居中
+          content.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        });
+
+        document.addEventListener('mouseup', function() {
+          isDragging = false;
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <!-- 顶部导航栏 -->
+    <div class="nav-header">
+      <div class="nav-header__container">
+        <div class="nav-header__weather">
+          <span id="weather-info" style="cursor: pointer;">正在获取天气...</span>
+        </div>
+        <div class="nav-header__date">
+          <span id="calendar-label">欢迎</span>
+        </div>
+        <div class="nav-header__actions">
+          <div class="nav-header__btn" id="categoryManageBtn">分类管理</div>
+          <div class="nav-header__btn" id="addLinkBtn">增加链接</div>
+          <div class="nav-header__btn" id="settingsBtn">设置</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 设置面板 -->
+    <div id="settingsPanel" class="settings-panel is-hidden" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
+      <div class="settings-panel__content">
+        <div class="settings-panel__header" id="settingsPanelHeader">
+          <h3 id="settingsTitle">设置</h3>
+          <button class="settings-close" id="settingsClose" aria-label="关闭设置面板">&times;</button>
+        </div>
+        <div class="settings-panel__body">
+          <!-- 配置状态提示 -->
+          <div id="configStatus" class="config-status">
+            <div id="configStatusText"></div>
+          </div>
+          
+          <div class="settings-item">
+            <label>Cloudflare Worker URL</label>
+            <input type="text" id="workerUrl" class="input-worker-url" placeholder="https://your-worker.workers.dev">
+          </div>
+          <div class="settings-item">
+            <label>API Token</label>
+            <input type="password" id="apiToken" class="input-api-token" placeholder="输入API Token">
+          </div>
+          <div class="settings-item">
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+              <button class="settings-btn" id="loginBtn">登录</button>
+              <button class="settings-btn sync-btn" id="downloadFromCloudBtn" style="display: none;">下载云端数据</button>
+              <button class="settings-btn sync-btn" id="uploadToCloudBtn" style="display: none;">上传到云端</button>
+            </div>
+            <span id="syncStatus" class="sync-status-text"></span>
+          </div>
+          
+          <!-- 同步信息（已配置时显示） -->
+          <div id="syncInfo" class="sync-info">
+            <div id="lastSyncTime"></div>
+            <div id="syncStatusInfo"></div>
+          </div>
+          
+          <div class="settings-item">
+            <label>数据管理</label>
+            <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+              <button class="settings-btn" id="exportDataBtn">导出数据</button>
+              <button class="settings-btn" id="importDataBtn">导入数据</button>
+              <button class="settings-btn" id="resetDataBtn">清理本地数据</button>
+              <input type="file" id="importDataInput" accept=".json" style="display: none;">
+            </div>
+            <div style="margin-top: 10px; font-size: 12px; color: #666;">
+              清理本地数据将恢复到初始状态，清空所有分类和链接
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 添加链接模态框 -->
+    <div id="addLinkModal" class="settings-panel is-hidden" role="dialog" aria-labelledby="addLinkTitle" aria-modal="true">
+      <div class="settings-panel__content">
+        <div class="settings-panel__header" id="addLinkModalHeader">
+          <h3 id="addLinkTitle">添加链接</h3>
+          <button class="settings-close" id="addLinkClose" aria-label="关闭添加链接面板">&times;</button>
+        </div>
+        <div class="settings-panel__body">
+          <div class="settings-item">
+            <label for="linkNameInput">网站名称</label>
+            <input type="text" id="linkNameInput" class="input-link-name" placeholder="输入网站名称">
+          </div>
+          <div class="settings-item">
+            <label for="linkUrlInput">网站URL</label>
+            <input type="text" id="linkUrlInput" class="input-link-url" placeholder="https://example.com">
+          </div>
+          <div class="settings-item">
+            <label for="linkCategorySelect">添加到</label>
+            <select id="linkCategorySelect" class="input-link-category">
+              <!-- 分类选项将由JavaScript动态加载 -->
+            </select>
+          </div>
+          <div class="settings-item">
+            <button class="settings-btn" id="saveLinkBtn">保存</button>
+            <button class="settings-btn" id="cancelLinkBtn">取消</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 右键菜单 -->
+    <div id="contextMenu" class="context-menu">
+      <div class="context-menu__item" id="editLinkBtn">编辑</div>
+      <div class="context-menu__item" id="colorLinkBtn">颜色</div>
+      <div class="context-menu__item" id="deleteLinkBtn">删除</div>
+    </div>
+    
+    <!-- 编辑链接模态框 -->
+    <div id="editLinkModal" class="settings-panel is-hidden" role="dialog" aria-labelledby="editLinkTitle" aria-modal="true">
+      <div class="settings-panel__content">
+        <div class="settings-panel__header" id="editLinkModalHeader">
+          <h3 id="editLinkTitle">编辑链接</h3>
+          <button class="settings-close" id="editLinkClose" aria-label="关闭编辑链接面板">&times;</button>
+        </div>
+        <div class="settings-panel__body">
+          <div class="settings-item">
+            <label for="editLinkNameInput">链接名称</label>
+            <input type="text" id="editLinkNameInput" class="input-edit-link-name" placeholder="输入链接名称">
+          </div>
+          <div class="settings-item">
+            <label for="editLinkUrlInput">链接地址</label>
+            <input type="text" id="editLinkUrlInput" class="input-edit-link-url" placeholder="输入链接地址">
+          </div>
+          <div class="settings-item">
+            <button class="settings-btn" id="saveEditLinkBtn">保存</button>
+            <button class="settings-btn" id="cancelEditLinkBtn">取消</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 分类管理模态框 -->
+    <div id="categoryManageModal" class="settings-panel is-hidden" role="dialog" aria-labelledby="categoryManageTitle" aria-modal="true">
+      <div class="settings-panel__content" style="max-width: 600px;">
+        <div class="settings-panel__header" id="categoryManageModalHeader">
+          <h3 id="categoryManageTitle">分类管理</h3>
+          <button class="settings-close" id="categoryManageClose" aria-label="关闭分类管理面板">&times;</button>
+        </div>
+        <div class="settings-panel__body">
+          <!-- 添加新分类 -->
+          <div class="settings-item" style="border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+            <label for="newCategoryNameInput" style="font-weight: bold; margin-bottom: 10px; display: block;">添加新分类</label>
+            <div style="display: flex; gap: 10px;">
+              <input type="text" id="newCategoryNameInput" class="input-category-name" placeholder="输入分类名称">
+              <button class="settings-btn" id="addNewCategoryBtn">添加</button>
+            </div>
+          </div>
+
+          <!-- 分类列表 -->
+          <div class="settings-item">
+            <label style="font-weight: bold; margin-bottom: 10px; display: block;">分类列表</label>
+            <div id="categoryListContainer" style="max-height: 400px; overflow-y: auto;">
+              <!-- 分类列表将由JavaScript动态渲染 -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 天气城市设置模态框 -->
+    <div id="weatherSettingsModal" class="settings-panel is-hidden" role="dialog" aria-labelledby="weatherSettingsTitle" aria-modal="true">
+      <div class="settings-panel__content">
+        <div class="settings-panel__header" id="weatherSettingsModalHeader">
+          <h3 id="weatherSettingsTitle">天气设置</h3>
+          <button class="settings-close" id="weatherSettingsClose" aria-label="关闭天气设置面板">&times;</button>
+        </div>
+        <div class="settings-panel__body">
+          <div class="settings-item">
+            <label for="weatherCityCodeInput">城市编码</label>
+            <input type="text" id="weatherCityCodeInput" class="input-weather-city-code" placeholder="输入城市编码，如：110000">
+            <div style="margin-top: 10px; font-size: 12px; color: #666;">
+              <a href="https://www.mca.gov.cn/mzsj/xzqh/2022/202201xzqh.html" style="color: #4d90fe; text-decoration: none;">点击查看城市编码(adcode)</a>
+            </div>
+          </div>
+          <div class="settings-item">
+            <label for="weatherApiKeyInput">高德API Key</label>
+            <input type="text" id="weatherApiKeyInput" class="input-weather-api-key" placeholder="输入高德地图API Key">
+            <div style="margin-top: 10px; font-size: 12px; color: #666;">
+              <a href="https://console.amap.com/dev/key/app" style="color: #4d90fe; text-decoration: none;">获取API Key</a>
+            </div>
+          </div>
+          <div class="settings-item">
+            <button class="settings-btn" id="saveWeatherSettingsBtn">保存</button>
+            <button class="settings-btn" id="resetWeatherSettingsBtn">重置为自动定位</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 全局加载覆盖层 -->
+    <div id="loadingOverlay" class="loading-overlay is-hidden">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">正在处理中...</p>
+      </div>
+    </div>
+
+
+    
+    <!-- 主要内容区域 -->
+    <div id="bd">
+        <!-- 搜索栏 -->
+        <div id="searchBar" class="search-box">
+            <form id="searchForm" method="get" action="https://www.google.com/search" class="search-form">
+                <div class="search-engine-selector" id="searchEngineSelector">
+                    <img src="https://www.google.com/favicon.ico" alt="Google" class="search-engine-icon" data-engine="google">
+                </div>
+                <input type="text" class="search-input" id="searchKey" autocomplete="off" name="q">
+                <button class="search-btn" type="submit">
+                    <svg class="icon" viewBox="0 0 1024 1024" width="24" height="24"><path d="M1024 992l-242.5-242.5C842.3 666.9 896 549.2 896 416 896 186.5 709.5 0 480 0S64 186.5 64 416s186.5 416 416 416c133.2 0 250.9-53.7 333.5-114.5L1024 992zM480 768c-194.9 0-352-157.1-352-352S285.1 64 480 64s352 157.1 352 352-157.1 352-352 352z" fill="#4285f4"></path></svg>
+                </button>
+            </form>
+        </div>
+
+
+          <div class="clearfix"></div>
+        </div>
+        
+        <!-- 链接内容区域 -->
+        <div class="main-content">
+          <div>
+            <div class="main-content__container">
+              <div class="main-content__wrapper">
+                <div class="category-module category-module__box">
+                  <div class="category-module__header">
+                    <div class="inline-block category-module__title-wrapper category-module__title-wrapper--active">
+                      <a class="category-module__title" name="title">常用网站</a>
+                    </div>
+                  </div>
+                  <div>
+                    <div id="common-links-content" class="category-module__content">
+                      <!-- 常用网站内容将由JavaScript动态渲染 -->
+                    </div>
+                  </div>
+                </div>
+                <!-- 分类模块将直接渲染在这里 -->
+                <div id="category-modules-container">
+                  <!-- 分类模块内容将由JavaScript动态渲染 -->
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="clearfix"></div>
+        </div>
+      </div>
+    <script src="main.js" defer></script>
+  </body>
+</html>
