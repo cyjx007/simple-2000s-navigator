@@ -260,6 +260,7 @@ open index.html
 
 如有问题或建议，请通过以下方式联系：
 
+- **反馈网址**: [https://blog.062200.xyz/2025/simple-2000s-navigator/](https://blog.062200.xyz/2025/simple-2000s-navigator/)
 - GitHub Issues: [提交问题](https://github.com/wangdaodaodao/2000s-Navigator/issues)
 - Email: wangdaodaodao@example.com
 
