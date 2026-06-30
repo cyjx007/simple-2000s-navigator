@@ -24,18 +24,8 @@ const DataManager = {
         return {
             categories: [
                 { id: 1, name: '常用网站', icon: '', order: 1 },
-                { id: 2, name: '模块一', icon: '', order: 2 },
-                { id: 3, name: '模块二', icon: '', order: 3 }
             ],
-            links: [
-                // 常用网站
-                { id: 1, name: '导航1', url: 'https://nav.062200.xyz', category_id: 1, order: 1 },
-                { id: 2, name: '导航2', url: 'https://nav.062200.xyz', category_id: 1, order: 2 },
-                { id: 3, name: '导航3', url: 'https://nav.062200.xyz', category_id: 1, order: 3 },
-                // 模块一
-                { id: 4, name: '博客1', url: 'https://blog.062200.xyz', category_id: 2, order: 1 },
-                { id: 5, name: '博客2', url: 'https://blog.062200.xyz', category_id: 2, order: 2 },
-                { id: 6, name: '博客3', url: 'https://blog.062200.xyz', category_id: 2, order: 3 },      ],
+            links: [],
             meta: { version: 1, lastUpdate: new Date().toISOString() }
         };
     },

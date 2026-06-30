@@ -8,6 +8,33 @@
 // ===== 工具函数 =====
 const $ = id => document.getElementById(id);
 
+// ===== 主题管理 (深色/浅色模式) =====
+const ThemeManager = {
+    init() {
+        this.btn = document.getElementById('themeToggleBtn');
+        this.theme = localStorage.getItem('nav_theme') || 'light';
+        this.applyTheme(this.theme);
+
+        if (this.btn) {
+            this.btn.addEventListener('click', () => this.toggleTheme());
+        }
+    },
+    toggleTheme() {
+        this.theme = this.theme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('nav_theme', this.theme);
+        this.applyTheme(this.theme);
+    },
+    applyTheme(theme) {
+        if (theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            if (this.btn) this.btn.textContent = '☀️';
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+            if (this.btn) this.btn.textContent = '🌙';
+        }
+    }
+};
+
 // ===== 搜索栏 =====
 const searchEngines = {
     google: {
@@ -76,7 +103,6 @@ const ModalManager = {
             addLink: { id: 'addLinkModal', openFn: openAddLinkModal, closeFn: closeAddLinkModal },
             editLink: { id: 'editLinkModal', openFn: openEditLinkModal, closeFn: closeEditLinkModal },
             categoryManage: { id: 'categoryManageModal', openFn: openCategoryManageModal, closeFn: closeCategoryManageModal },
-            weatherSettings: { id: 'weatherSettingsModal', openFn: openWeatherSettingsModal, closeFn: closeWeatherSettingsModal },
             searchEngine: { id: 'searchEngineModal' }
         };
     },
@@ -100,120 +126,10 @@ const ModalManager = {
     }
 };
 
-// 更新日历显示
-function updateCalendar() {
-  const calendarLabel = document.getElementById('calendar-label');
-  if (calendarLabel) {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
 
-    // 天干地支年份计算
-    const gan = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
-    const zhi = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-    const ganIndex = (year - 4) % 10;
-    const zhiIndex = (year - 4) % 12;
-    const ganZhiYear = gan[ganIndex] + zhi[zhiIndex];
-
-    // 获取星期
-    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-    const weekday = weekdays[now.getDay()];
-
-    // 简化显示
-    calendarLabel.textContent = `${year}年${month}月${day}日(${ganZhiYear}年 星期${weekday})`;
-  }
-}
 
 // 天气管理
-const WeatherManager = {
-  weatherElement: null,
-  lastUpdate: 0,
-  updateInterval: 30 * 60 * 1000, // 30分钟更新一次
 
-  init() {
-    this.weatherElement = document.getElementById('weather-info');
-    if (this.weatherElement) {
-      // 添加点击事件
-      this.weatherElement.addEventListener('click', () => {
-        ModalManager.open('weatherSettings');
-      });
-
-      this.updateWeather();
-      // 每30分钟更新一次天气
-      setInterval(() => this.updateWeather(), this.updateInterval);
-    }
-  },
-
-  getSettings() {
-    const data = DataManager.getData();
-    return data.weatherSettings || { cityCode: '', apiKey: '' };
-  },
-
-  saveSettings(settings) {
-    const data = DataManager.getData();
-    data.weatherSettings = settings;
-    DataManager.saveData(data);
-  },
-
-  async updateWeather() {
-    try {
-      const settings = this.getSettings();
-
-      // 检查是否配置了API Key
-      if (!settings.apiKey) {
-        this.weatherElement.textContent = '请先配置高德API Key';
-        return;
-      }
-
-      // 构建高德天气API URL
-      const baseUrl = 'https://restapi.amap.com/v3/weather/weatherInfo';
-      const params = new URLSearchParams({
-        key: settings.apiKey,
-        city: settings.cityCode || '110000', // 默认北京
-        extensions: 'base' // 只获取实况天气
-      });
-
-      const apiUrl = `${baseUrl}?${params.toString()}`;
-
-      const response = await fetch(apiUrl);
-      const data = await response.json();
-
-      if (data.status === '1' && data.lives && data.lives.length > 0) {
-        const weatherData = data.lives[0];
-        const province = weatherData.province || '';
-        const city = weatherData.city || '未知';
-        const weather = weatherData.weather || '未知';
-        const temperature = weatherData.temperature || '未知';
-        const winddirection = weatherData.winddirection || '';
-        const windpower = weatherData.windpower || '';
-        const humidity = weatherData.humidity || '';
-
-        // 构建更丰富的天气信息
-        let weatherText = `${province}${city} ${weather} ${temperature}°C`;
-
-        // 添加风力信息（如果有）
-        if (winddirection && windpower) {
-          weatherText += ` ${winddirection}风${windpower}级`;
-        }
-
-        // 添加湿度信息（如果有）
-        if (humidity) {
-          weatherText += ` 湿度${humidity}%`;
-        }
-
-        this.weatherElement.textContent = weatherText;
-        this.lastUpdate = Date.now();
-      } else {
-        const errorInfo = data.info || '未知错误';
-        this.weatherElement.textContent = `天气获取失败: ${errorInfo}`;
-      }
-    } catch (error) {
-      console.error('获取天气失败:', error);
-      this.weatherElement.textContent = '天气获取失败';
-    }
-  }
-};
 
 // 更新同步按钮显示状态
 function updateSyncButtonsVisibility() {
@@ -761,62 +677,11 @@ function closeCategoryManageModal() {
 }
 
 // 天气设置弹窗控制
-function openWeatherSettingsModal() {
-  // 加载已保存的设置
-  const settings = WeatherManager.getSettings();
-  document.getElementById('weatherCityCodeInput').value = settings.cityCode || '';
-  document.getElementById('weatherApiKeyInput').value = settings.apiKey || '';
-  // 使用可访问性管理器打开模态框
-  AccessibilityManager.openModal('weatherSettingsModal');
-}
 
-function closeWeatherSettingsModal() {
-  // 使用可访问性管理器关闭模态框
-  AccessibilityManager.closeModal('weatherSettingsModal');
-  // 清空表单
-  document.getElementById('weatherCityCodeInput').value = '';
-  document.getElementById('weatherApiKeyInput').value = '';
-}
 
-// 保存天气设置
-async function saveWeatherSettings() {
-  const cityCode = document.getElementById('weatherCityCodeInput').value.trim();
-  const apiKey = document.getElementById('weatherApiKeyInput').value.trim();
 
-  if (!apiKey) {
-    alert('请输入高德API Key');
-    return;
-  }
 
-  // 保存设置
-  WeatherManager.saveSettings({ cityCode: cityCode, apiKey: apiKey });
 
-  // 同步天气设置到云端
-  try {
-    await syncWeatherSettingsToCloud({ cityCode: cityCode, apiKey: apiKey });
-  } catch (error) {
-    console.log('天气设置同步失败:', error);
-    // 不影响正常功能，只是记录错误
-  }
-
-  // 立即更新天气
-  WeatherManager.updateWeather();
-
-  // 关闭弹窗
-  closeWeatherSettingsModal();
-}
-
-// 重置天气设置
-function resetWeatherSettings() {
-  // 清除设置
-  WeatherManager.saveSettings({ cityCode: '', apiKey: '' });
-
-  // 立即更新天气（使用默认设置）
-  WeatherManager.updateWeather();
-
-  // 关闭弹窗
-  closeWeatherSettingsModal();
-}
 
 // 渲染分类列表
 function renderCategoryList() {
@@ -1030,49 +895,58 @@ function saveLink() {
 }
 
 // 渲染常用网站
+// 渲染常用网站
+// 渲染常用网站
 function renderCommonLinks() {
   const data = DataManager.getData();
   const container = document.getElementById('common-links-content');
   if (!container) return;
 
-  // 获取常用网站（分类ID为1）
   const commonLinks = data.links.filter(link => link.category_id === 1);
-
   container.innerHTML = '';
+  
   const linksContainer = document.createElement('div');
   linksContainer.className = 'category-module__links';
 
   commonLinks.forEach(link => {
     const linkDiv = document.createElement('div');
-    linkDiv.className = 'inline-block category-module__link';
+    linkDiv.className = 'category-module__link';
     linkDiv.dataset.linkId = link.id;
 
     const linkA = document.createElement('a');
     linkA.href = link.url;
-    linkA.textContent = link.name;
+    linkA.target = "_blank"; // 在新标签页打开更实用
 
-    // 根据颜色设置链接颜色
-    if (link.color === 'red') {
-      linkA.style.color = '#e74c3c';
-    } else if (link.color === 'blue') {
-      linkA.style.color = '#3498db';
-    } else {
-      linkA.style.color = '#000000'; // 默认黑色
+    // 自动抓取网站 Favicon 图标
+    const iconImg = document.createElement('img');
+    iconImg.className = 'link-icon';
+    try {
+        const urlObj = new URL(link.url);
+        iconImg.src = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
+    } catch(e) {
+        iconImg.src = 'https://www.google.com/s2/favicons?domain=example.com&sz=64'; // 默认 fallback
     }
+    
+    // 链接文字容器
+    const textSpan = document.createElement('span');
+    textSpan.className = 'link-text';
+    textSpan.textContent = link.name;
 
-    // 右键菜单
-    linkDiv.addEventListener('contextmenu', function(e) {
-      showContextMenu(e, link.id);
-    });
+    linkA.appendChild(iconImg);
+    linkA.appendChild(textSpan);
 
+    if (link.color === 'red') { linkA.style.color = '#ef4444'; } 
+    else if (link.color === 'blue') { linkA.style.color = '#3b82f6'; }
+
+    linkDiv.addEventListener('contextmenu', function(e) { showContextMenu(e, link.id); });
     linkDiv.appendChild(linkA);
     linksContainer.appendChild(linkDiv);
   });
-
+  
   container.appendChild(linksContainer);
 }
 
-// 渲染分类模块（每个分类显示为一个独立模块，类似常用网站模块）
+// 渲染分类模块（其他栏目）
 function renderCategoryLinks() {
   const data = DataManager.getData();
   const container = document.getElementById('category-modules-container');
@@ -1086,19 +960,12 @@ function renderCategoryLinks() {
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 
   categories.forEach(category => {
+    // 这里就是之前报错丢失的定义，负责过滤出当前分类下的链接
     const categoryLinks = data.links.filter(link => link.category_id === category.id);
 
-    // 创建分类模块容器（类似常用网站模块的结构）
     const categoryModule = document.createElement('div');
     categoryModule.className = 'category-module category-module__box';
     categoryModule.dataset.categoryId = category.id;
-
-    // 为每个分类模块随机分配主题颜色
-    const themes = ['theme-yellow', 'theme-blue', 'theme-red', 'theme-green', 'theme-purple'];
-    // 使用分类ID作为种子，确保同一分类总是相同主题
-    const themeIndex = category.id % themes.length;
-    const themeClass = 'category-module__box--' + themes[themeIndex];
-    categoryModule.classList.add(themeClass);
 
     // 模块标题区域
     const titleSection = document.createElement('div');
@@ -1139,64 +1006,46 @@ function renderCategoryLinks() {
 
       categoryLinks.forEach((link, index) => {
         const linkDiv = document.createElement('div');
-        linkDiv.className = 'inline-block category-module__link';
+        linkDiv.className = 'category-module__link';
         linkDiv.dataset.linkId = link.id;
 
         const linkA = document.createElement('a');
         linkA.href = link.url;
-        linkA.textContent = link.name;
+        linkA.target = "_blank";
 
-        // 根据颜色设置链接颜色
-        if (link.color === 'red') {
-          linkA.style.color = '#e74c3c';
-        } else if (link.color === 'blue') {
-          linkA.style.color = '#3498db';
-        } else {
-          linkA.style.color = '#000000'; // 默认黑色
+        // 自动抓取网站 Favicon 图标
+        const iconImg = document.createElement('img');
+        iconImg.className = 'link-icon';
+        try {
+            const urlObj = new URL(link.url);
+            iconImg.src = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
+        } catch(e) {
+            iconImg.src = 'https://www.google.com/s2/favicons?domain=example.com&sz=64';
         }
+        
+        // 链接文字容器
+        const textSpan = document.createElement('span');
+        textSpan.className = 'link-text';
+        textSpan.textContent = link.name;
 
-        // 右键菜单：编辑/删除链接
-        linkDiv.addEventListener('contextmenu', function(e) {
-          showContextMenu(e, link.id);
-        });
+        linkA.appendChild(iconImg);
+        linkA.appendChild(textSpan);
 
+        if (link.color === 'red') { linkA.style.color = '#ef4444'; } 
+        else if (link.color === 'blue') { linkA.style.color = '#3b82f6'; }
+
+        linkDiv.addEventListener('contextmenu', function(e) { showContextMenu(e, link.id); });
         linkDiv.appendChild(linkA);
         linksDiv.appendChild(linkDiv);
-
-        // 在第32个链接（索引31）之后添加分隔线
-        if (index === 31 && categoryLinks.length > 32) {
-          const hr = document.createElement('hr');
-          hr.style.width = '100%';
-          hr.style.border = 'none';
-          hr.style.margin = '10px 0';
-          hr.style.clear = 'both';
-
-          // 根据模块主题设置HR颜色
-          if (categoryModule.classList.contains('category-module__box--theme-yellow')) {
-            hr.style.borderTop = '1px solid #f0d680';
-          } else if (categoryModule.classList.contains('category-module__box--theme-blue')) {
-            hr.style.borderTop = '1px solid #94d6eb';
-          } else if (categoryModule.classList.contains('category-module__box--theme-red')) {
-            hr.style.borderTop = '1px solid #f0c1c1';
-          } else if (categoryModule.classList.contains('category-module__box--theme-green')) {
-            hr.style.borderTop = '1px solid #b2db65';
-          } else if (categoryModule.classList.contains('category-module__box--theme-purple')) {
-            hr.style.borderTop = '1px solid #f4caca';
-          } else {
-            hr.style.borderTop = '1px solid #ddd'; // 默认颜色
-          }
-
-          linksDiv.appendChild(hr);
-        }
       });
 
       linksContainer.appendChild(linksDiv);
     } else {
       // 空分类显示提示
       const emptyHint = document.createElement('div');
-      emptyHint.className = 'category-module__content';
       emptyHint.style.padding = '10px';
-      emptyHint.style.color = '#999';
+      emptyHint.style.color = 'var(--text-color)';
+      emptyHint.style.opacity = '0.5';
       emptyHint.style.fontStyle = 'italic';
       emptyHint.textContent = '（暂无链接，点击"增加链接"添加）';
       linksContainer.appendChild(emptyHint);
@@ -1396,9 +1245,6 @@ function bindEvents() {
     'editLinkBtn': ['click', () => openEditLinkModal(parseInt($('contextMenu').dataset.linkId))],
     'colorLinkBtn': ['click', () => showColorSubmenu(parseInt($('contextMenu').dataset.linkId))],
     'deleteLinkBtn': ['click', () => deleteLink(parseInt($('contextMenu').dataset.linkId))],
-    'weatherSettingsClose': ['click', closeWeatherSettingsModal],
-    'saveWeatherSettingsBtn': ['click', saveWeatherSettings],
-    'resetWeatherSettingsBtn': ['click', resetWeatherSettings],
     'searchEngineSelector': ['click', () => AccessibilityManager.openModal('searchEngineModal')],
     'searchEngineClose': ['click', () => AccessibilityManager.closeModal('searchEngineModal')]
   };
@@ -1417,7 +1263,7 @@ function bindEvents() {
     'addLinkModal': () => closeAddLinkModal(),
     'editLinkModal': () => closeEditLinkModal(),
     'categoryManageModal': () => closeCategoryManageModal(),
-    'weatherSettingsModal': () => closeWeatherSettingsModal()
+  
   };
 
   Object.keys(modalCloseMap).forEach(id => {
@@ -1496,56 +1342,6 @@ function bindEvents() {
       apiToken: $('apiToken').value.trim()
     }));
   });
-
-
-}
-
-// 同步天气设置到云端
-async function syncWeatherSettingsToCloud(weatherSettings) {
-  // 检查云端同步是否已配置
-  const cloudSettings = CloudflareSync.getSettings();
-  if (!cloudSettings.verified || !cloudSettings.workerUrl || !cloudSettings.apiToken) {
-    // 云端同步未配置，跳过同步
-    return;
-  }
-
-  try {
-    // 获取当前数据
-    const data = DataManager.getData();
-
-    // 将天气设置添加到数据中
-    data.weatherSettings = weatherSettings;
-    data.weatherSettings.lastUpdate = new Date().toISOString();
-
-    // 上传到云端
-    const response = await fetch(`${cloudSettings.workerUrl}/api/data`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${cloudSettings.apiToken}`
-      },
-      body: JSON.stringify(data)
-    });
-
-    if (response.ok) {
-      // 更新本地同步标记
-      localStorage.setItem(DataManager.SYNC_KEY, 'false');
-      console.log('天气设置已同步到云端');
-    } else {
-      console.log('天气设置同步失败:', response.status);
-    }
-  } catch (error) {
-    console.log('天气设置同步错误:', error);
-  }
-}
-
-// 从云端恢复天气设置
-function restoreWeatherSettingsFromCloud() {
-  const data = DataManager.getData();
-  if (data.weatherSettings) {
-    WeatherManager.saveSettings(data.weatherSettings);
-    console.log('已从云端恢复天气设置');
-  }
 }
 
 // ===== 初始化 =====
@@ -1554,20 +1350,17 @@ document.addEventListener('DOMContentLoaded', function() {
   AccessibilityManager.init();
   ModalManager.init();
   CloudflareSync.init();
-  WeatherManager.init();
-
-  // 从云端恢复天气设置
-  restoreWeatherSettingsFromCloud();
-
-  updateCalendar();
-  setInterval(updateCalendar, 60000);
+  
+  // 初始化深浅主题
+  ThemeManager.init();
 
   bindEvents();
   renderCommonLinks();
   renderCategoryLinks();
 
-  // 初始化弹窗拖拽
-  ['settingsPanel', 'addLinkModal', 'editLinkModal', 'categoryManageModal', 'weatherSettingsModal'].forEach(id => {
+  // 初始化弹窗拖拽 (移除了天气的弹窗)
+  ['settingsPanel', 'addLinkModal', 'editLinkModal', 'categoryManageModal'].forEach(id => {
     makeDraggable(id, `${id}Header`);
   });
 });
+
