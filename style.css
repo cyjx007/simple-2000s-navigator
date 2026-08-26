@@ -386,6 +386,9 @@ a {
 }
 .context-menu__item { padding: 10px 16px; cursor: pointer; border-radius: 8px; font-weight: 500; font-size: 13px; transition: background-color 0.2s; color: var(--text-color);}
 .context-menu__item:hover { background-color: var(--hover-bg); color: var(--primary-color);}
+.context-menu.is-visible {
+    display: block;
+}
 
 .loading-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--modal-overlay); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 20000;
