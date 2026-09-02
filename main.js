@@ -1149,17 +1149,17 @@ function saveEditLink() {
 }
 
 // 删除链接
-function deleteLink(linkId) {
-  if (confirm('确定要删除这个链接吗？')) {
-    const data = DataManager.getData();
-    data.links = data.links.filter(l => l.id !== linkId);
-    DataManager.saveData(data);
-    CloudflareSync.autoSync();
-    renderCommonLinks();
-    renderCategoryLinks();
-  }
-  hideContextMenu();
-}
+// function deleteLink(linkId) {
+//   if (confirm('确定要删除这个链接吗？')) {
+//     const data = DataManager.getData();
+//     data.links = data.links.filter(l => l.id !== linkId);
+//     DataManager.saveData(data);
+//     CloudflareSync.autoSync();
+//     renderCommonLinks();
+//     renderCategoryLinks();
+//   }
+//   hideContextMenu();
+// }
 // 临时调试版：去掉 confirm
 // function deleteLink(linkId) {
 //   // 加上一句 log，看看有没有执行进来
@@ -1174,6 +1174,48 @@ function deleteLink(linkId) {
 
 //   hideContextMenu();
 // }
+// 生产环境：使用全局变量记录当前准备删除的链接 ID
+let targetDeleteLinkId = null;
+
+// 1. 触发动作：打开确认弹窗 (代替原有的 confirm)
+function deleteLink(linkId) {
+  targetDeleteLinkId = linkId;
+  const data = DataManager.getData();
+  const link = data.links.find(l => l.id === linkId);
+
+  // 生产环境细节：提示具体的网站名称，防止用户误删
+  const confirmText = document.getElementById('deleteConfirmText');
+  if (confirmText) {
+    confirmText.textContent = link ? `确定要删除 "${link.name}" 吗？` : '确定要删除该链接吗？';
+  }
+
+  // 使用你写好的管理器打开弹窗
+  AccessibilityManager.openModal('deleteConfirmModal');
+  hideContextMenu();
+}
+
+// 2. 执行动作：用户点击"删除"按钮后真实执行的逻辑
+function executeDelete() {
+  if (!targetDeleteLinkId) return;
+
+  const data = DataManager.getData();
+  data.links = data.links.filter(l => l.id !== targetDeleteLinkId);
+  DataManager.saveData(data);
+  CloudflareSync.autoSync();
+  renderCommonLinks();
+  renderCategoryLinks();
+
+  // 删除完成后关闭弹窗并清空ID
+  AccessibilityManager.closeModal('deleteConfirmModal');
+  targetDeleteLinkId = null;
+}
+
+// 3. 取消动作：用户点击"取消"或"X"
+function cancelDelete() {
+  AccessibilityManager.closeModal('deleteConfirmModal');
+  targetDeleteLinkId = null;
+}
+//
 // 显示颜色选择子菜单
 function showColorSubmenu(linkId) {
   // 隐藏主菜单
@@ -1258,6 +1300,9 @@ function bindEvents() {
     'editLinkBtn': ['click', () => openEditLinkModal(parseInt($('contextMenu').dataset.linkId))],
     'colorLinkBtn': ['click', () => showColorSubmenu(parseInt($('contextMenu').dataset.linkId))],
     'deleteLinkBtn': ['click', () => deleteLink(parseInt($('contextMenu').dataset.linkId))],
+    'confirmDeleteBtn': ['click', executeDelete],
+    'cancelDeleteBtn': ['click', cancelDelete],
+    'deleteConfirmClose': ['click', cancelDelete],
     'searchEngineSelector': ['click', () => AccessibilityManager.openModal('searchEngineModal')],
     'searchEngineClose': ['click', () => AccessibilityManager.closeModal('searchEngineModal')]
   };
@@ -1276,6 +1321,7 @@ function bindEvents() {
     'addLinkModal': () => closeAddLinkModal(),
     'editLinkModal': () => closeEditLinkModal(),
     'categoryManageModal': () => closeCategoryManageModal(),
+    'deleteConfirmModal': () => cancelDelete(),
 
   };
 
@@ -1372,7 +1418,11 @@ document.addEventListener('DOMContentLoaded', function() {
   renderCategoryLinks();
 
   // 初始化弹窗拖拽 (移除了天气的弹窗)
-  ['settingsPanel', 'addLinkModal', 'editLinkModal', 'categoryManageModal'].forEach(id => {
+  // ['settingsPanel', 'addLinkModal', 'editLinkModal', 'categoryManageModal'].forEach(id => {
+  //   makeDraggable(id, `${id}Header`);
+  // });
+  // 将 'deleteConfirmModal' 加入数组
+  ['settingsPanel', 'addLinkModal', 'editLinkModal', 'categoryManageModal', 'deleteConfirmModal'].forEach(id => {
     makeDraggable(id, `${id}Header`);
   });
 });
