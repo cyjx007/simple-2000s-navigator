@@ -904,7 +904,7 @@ function renderCommonLinks() {
 
   const commonLinks = data.links.filter(link => link.category_id === 1);
   container.innerHTML = '';
-  
+
   const linksContainer = document.createElement('div');
   linksContainer.className = 'category-module__links';
 
@@ -926,7 +926,7 @@ function renderCommonLinks() {
     } catch(e) {
         iconImg.src = 'https://www.google.com/s2/favicons?domain=example.com&sz=64'; // 默认 fallback
     }
-    
+
     // 链接文字容器
     const textSpan = document.createElement('span');
     textSpan.className = 'link-text';
@@ -935,14 +935,14 @@ function renderCommonLinks() {
     linkA.appendChild(iconImg);
     linkA.appendChild(textSpan);
 
-    if (link.color === 'red') { linkA.style.color = '#ef4444'; } 
+    if (link.color === 'red') { linkA.style.color = '#ef4444'; }
     else if (link.color === 'blue') { linkA.style.color = '#3b82f6'; }
 
     linkDiv.addEventListener('contextmenu', function(e) { showContextMenu(e, link.id); });
     linkDiv.appendChild(linkA);
     linksContainer.appendChild(linkDiv);
   });
-  
+
   container.appendChild(linksContainer);
 }
 
@@ -1022,7 +1022,7 @@ function renderCategoryLinks() {
         } catch(e) {
             iconImg.src = 'https://www.google.com/s2/favicons?domain=example.com&sz=64';
         }
-        
+
         // 链接文字容器
         const textSpan = document.createElement('span');
         textSpan.className = 'link-text';
@@ -1031,7 +1031,7 @@ function renderCategoryLinks() {
         linkA.appendChild(iconImg);
         linkA.appendChild(textSpan);
 
-        if (link.color === 'red') { linkA.style.color = '#ef4444'; } 
+        if (link.color === 'red') { linkA.style.color = '#ef4444'; }
         else if (link.color === 'blue') { linkA.style.color = '#3b82f6'; }
 
         linkDiv.addEventListener('contextmenu', function(e) { showContextMenu(e, link.id); });
@@ -1149,18 +1149,31 @@ function saveEditLink() {
 }
 
 // 删除链接
+// function deleteLink(linkId) {
+//   if (confirm('确定要删除这个链接吗？')) {
+//     const data = DataManager.getData();
+//     data.links = data.links.filter(l => l.id !== linkId);
+//     DataManager.saveData(data);
+//     CloudflareSync.autoSync();
+//     renderCommonLinks();
+//     renderCategoryLinks();
+//   }
+//   hideContextMenu();
+// }
+// 临时调试版：去掉 confirm
 function deleteLink(linkId) {
-  if (confirm('确定要删除这个链接吗？')) {
-    const data = DataManager.getData();
-    data.links = data.links.filter(l => l.id !== linkId);
-    DataManager.saveData(data);
-    CloudflareSync.autoSync();
-    renderCommonLinks();
-    renderCategoryLinks();
-  }
+  // 加上一句 log，看看有没有执行进来
+  console.log("准备删除 ID:", linkId);
+
+  const data = DataManager.getData();
+  data.links = data.links.filter(l => l.id !== linkId);
+  DataManager.saveData(data);
+  CloudflareSync.autoSync();
+  renderCommonLinks();
+  renderCategoryLinks();
+
   hideContextMenu();
 }
-
 // 显示颜色选择子菜单
 function showColorSubmenu(linkId) {
   // 隐藏主菜单
@@ -1263,7 +1276,7 @@ function bindEvents() {
     'addLinkModal': () => closeAddLinkModal(),
     'editLinkModal': () => closeEditLinkModal(),
     'categoryManageModal': () => closeCategoryManageModal(),
-  
+
   };
 
   Object.keys(modalCloseMap).forEach(id => {
@@ -1350,7 +1363,7 @@ document.addEventListener('DOMContentLoaded', function() {
   AccessibilityManager.init();
   ModalManager.init();
   CloudflareSync.init();
-  
+
   // 初始化深浅主题
   ThemeManager.init();
 
@@ -1363,4 +1376,3 @@ document.addEventListener('DOMContentLoaded', function() {
     makeDraggable(id, `${id}Header`);
   });
 });
-
