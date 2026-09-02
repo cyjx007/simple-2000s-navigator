@@ -1149,31 +1149,31 @@ function saveEditLink() {
 }
 
 // 删除链接
-// function deleteLink(linkId) {
-//   if (confirm('确定要删除这个链接吗？')) {
-//     const data = DataManager.getData();
-//     data.links = data.links.filter(l => l.id !== linkId);
-//     DataManager.saveData(data);
-//     CloudflareSync.autoSync();
-//     renderCommonLinks();
-//     renderCategoryLinks();
-//   }
-//   hideContextMenu();
-// }
-// 临时调试版：去掉 confirm
 function deleteLink(linkId) {
-  // 加上一句 log，看看有没有执行进来
-  console.log("准备删除 ID:", linkId);
-
-  const data = DataManager.getData();
-  data.links = data.links.filter(l => l.id !== linkId);
-  DataManager.saveData(data);
-  CloudflareSync.autoSync();
-  renderCommonLinks();
-  renderCategoryLinks();
-
+  if (confirm('确定要删除这个链接吗？')) {
+    const data = DataManager.getData();
+    data.links = data.links.filter(l => l.id !== linkId);
+    DataManager.saveData(data);
+    CloudflareSync.autoSync();
+    renderCommonLinks();
+    renderCategoryLinks();
+  }
   hideContextMenu();
 }
+// 临时调试版：去掉 confirm
+// function deleteLink(linkId) {
+//   // 加上一句 log，看看有没有执行进来
+//   console.log("准备删除 ID:", linkId);
+
+//   const data = DataManager.getData();
+//   data.links = data.links.filter(l => l.id !== linkId);
+//   DataManager.saveData(data);
+//   CloudflareSync.autoSync();
+//   renderCommonLinks();
+//   renderCategoryLinks();
+
+//   hideContextMenu();
+// }
 // 显示颜色选择子菜单
 function showColorSubmenu(linkId) {
   // 隐藏主菜单
