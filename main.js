@@ -916,10 +916,12 @@ function renderCommonLinks() {
     const linkA = document.createElement('a');
     linkA.href = link.url;
     linkA.target = "_blank"; // 在新标签页打开更实用
+    linkA.draggable = false; // 【新增这一行】：禁用 a 标签默认拖拽
 
     // 自动抓取网站 Favicon 图标
     const iconImg = document.createElement('img');
     iconImg.className = 'link-icon';
+    iconImg.draggable = false; // 【新增这一行】：禁用图片默认拖拽
     try {
         const urlObj = new URL(link.url);
         iconImg.src = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
@@ -939,6 +941,7 @@ function renderCommonLinks() {
     else if (link.color === 'blue') { linkA.style.color = '#3b82f6'; }
 
     linkDiv.addEventListener('contextmenu', function(e) { showContextMenu(e, link.id); });
+    addDragEvents(linkDiv); // 【新增这一行】：为整个卡片绑定拖拽排序逻辑
     linkDiv.appendChild(linkA);
     linksContainer.appendChild(linkDiv);
   });
@@ -1012,10 +1015,12 @@ function renderCategoryLinks() {
         const linkA = document.createElement('a');
         linkA.href = link.url;
         linkA.target = "_blank";
+        linkA.draggable = false; // 【新增这一行】：禁用 a 标签默认拖拽
 
         // 自动抓取网站 Favicon 图标
         const iconImg = document.createElement('img');
         iconImg.className = 'link-icon';
+        iconImg.draggable = false; // 【新增这一行】：禁用图片默认拖拽
         try {
             const urlObj = new URL(link.url);
             iconImg.src = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
@@ -1035,6 +1040,7 @@ function renderCategoryLinks() {
         else if (link.color === 'blue') { linkA.style.color = '#3b82f6'; }
 
         linkDiv.addEventListener('contextmenu', function(e) { showContextMenu(e, link.id); });
+        addDragEvents(linkDiv); // 【新增这一行】：为整个卡片绑定拖拽排序逻辑
         linkDiv.appendChild(linkA);
         linksDiv.appendChild(linkDiv);
       });
@@ -1215,7 +1221,77 @@ function cancelDelete() {
   AccessibilityManager.closeModal('deleteConfirmModal');
   targetDeleteLinkId = null;
 }
-//
+
+// 全局变量：记录当前正在拖拽的元素
+let draggedItem = null;
+
+// 给链接卡片绑定拖拽事件
+function addDragEvents(linkDiv) {
+  linkDiv.draggable = true;
+
+  // 1. 开始拖拽
+  linkDiv.addEventListener('dragstart', function(e) {
+    draggedItem = this;
+    e.dataTransfer.effectAllowed = 'move';
+    // 添加一点半透明视觉反馈
+    setTimeout(() => this.style.opacity = '0.5', 0);
+  });
+
+  // 2. 拖拽结束
+  linkDiv.addEventListener('dragend', function() {
+    this.style.opacity = '1';
+    draggedItem = null;
+  });
+
+  // 3. 拖拽经过其他元素上方 (必须阻止默认事件才能允许放置)
+  linkDiv.addEventListener('dragover', function(e) {
+    e.preventDefault();
+  });
+
+  // 4. 放置元素
+  linkDiv.addEventListener('drop', function(e) {
+    e.preventDefault();
+    if (draggedItem && draggedItem !== this) {
+      const sourceId = parseInt(draggedItem.dataset.linkId);
+      const targetId = parseInt(this.dataset.linkId);
+      reorderLinks(sourceId, targetId);
+    }
+  });
+}
+
+// 重新排序数据并重新渲染
+function reorderLinks(sourceId, targetId) {
+  const data = DataManager.getData();
+
+  // 找到源元素和目标元素在数组中的索引
+  const sourceIndex = data.links.findIndex(l => l.id === sourceId);
+  const targetIndex = data.links.findIndex(l => l.id === targetId);
+
+  if (sourceIndex > -1 && targetIndex > -1) {
+    // 确保只能在同一个分类内排序
+    if (data.links[sourceIndex].category_id === data.links[targetIndex].category_id) {
+      // 1. 从原位置删除源元素
+      const [movedItem] = data.links.splice(sourceIndex, 1);
+
+      // 2. 将其插入到目标位置
+      data.links.splice(targetIndex, 0, movedItem);
+
+      // 3. 更新该分类下所有链接的 order 字段
+      const categoryId = movedItem.category_id;
+      const categoryLinks = data.links.filter(l => l.category_id === categoryId);
+      categoryLinks.forEach((link, index) => {
+        link.order = index + 1;
+      });
+
+      // 4. 保存数据、触发云端同步并重新渲染界面
+      DataManager.saveData(data);
+      CloudflareSync.autoSync();
+      renderCommonLinks();
+      renderCategoryLinks();
+    }
+  }
+}
+
 // 显示颜色选择子菜单
 function showColorSubmenu(linkId) {
   // 隐藏主菜单
